@@ -49,26 +49,55 @@ func handleTodosToday(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-// handleNewItem creates a new todo item
-func handleNewItem(c *gin.Context) {
+func initNewItem(c *gin.Context) {
 	var i item
 	err := c.ShouldBindWith(&i, binding.JSON)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Abort()
 		return
 	}
+	c.Set("item", i)
+}
+
+func validateNewItem(c *gin.Context) {
+	maybeItem, ok := c.Get("item")
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
+		c.Abort()
+		return
+	}
+
+	i := maybeItem.(item)
+
 	if i.Title == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title cannot be empty"})
+		c.Abort()
 		return
 	}
 	if i.Text == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "text cannot be empty"})
+		c.Abort()
 		return
 	}
 	if i.Date.IsZero() {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "date cannot be empty"})
+		c.Abort()
 		return
 	}
+}
+
+// handleNewItem creates a new todo item
+func handleNewItem(c *gin.Context) {
+	maybeItem, ok := c.Get("item")
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
+		c.Abort()
+		return
+	}
+
+	i := maybeItem.(item)
+
 	store = append(store, i)
 	c.JSON(http.StatusOK, gin.H{"message": "todo item created"})
 }
@@ -88,7 +117,7 @@ func Serve() error {
 
 	r.GET("/ping", handlePing)
 	r.GET("/todos/today", handleTodosToday)
-	r.PUT("/todos", handleNewItem)
+	r.PUT("/todos", initNewItem, validateNewItem, handleNewItem)
 	r.GET("/todos", handleGetItems)
 
 	err := r.Run()
