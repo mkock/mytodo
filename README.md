@@ -2,7 +2,7 @@
 
 A pet project.
 
-Written in Go. Using Gin. And migrations.
+Written in Go. Using Gin. And Goose for migrations. Also, sqlx for database queries.
 
 ## Todo for MyTodo
 
