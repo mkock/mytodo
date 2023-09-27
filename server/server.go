@@ -8,15 +8,7 @@ import (
 	"github.com/mkock/mytodo/todo"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 )
-
-// TODO store should be externalized
-var store []todo.Item
-
-func init() {
-	store = make([]todo.Item, 0)
-}
 
 func itemText(i todo.Item) string {
 	return i.Text + " (" + i.DueAt.Format("2006-01-02") + ")"
@@ -39,55 +31,15 @@ func handleTodosToday(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-func initNewItem(c *gin.Context) {
-	var i todo.Item
-	err := c.ShouldBindWith(&i, binding.JSON)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		c.Abort()
-		return
-	}
-	c.Set("item", i)
-}
-
-func validateNewItem(c *gin.Context) {
-	maybeItem, ok := c.Get("item")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
-		c.Abort()
-		return
-	}
-
-	i := maybeItem.(todo.Item)
-
-	if i.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "title cannot be empty"})
-		c.Abort()
-		return
-	}
-	if i.Text == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "text cannot be empty"})
-		c.Abort()
-		return
-	}
-	if i.DueAt.IsZero() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "date cannot be empty"})
-		c.Abort()
-		return
-	}
-}
-
 // handleNewItem creates a new todo item
 func handleNewItem(c *gin.Context) {
-	maybeItem, ok := c.Get("item")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
-		return
+	var i todo.Item
+	err := c.BindJSON(&i)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
 	}
-
-	i := maybeItem.(todo.Item)
-
-	err := db.CreateItem(c.Request.Context(), i)
+	err = db.CreateItem(c.Request.Context(), i)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -111,7 +63,7 @@ func Serve() error {
 
 	r.GET("/ping", handlePing)
 	r.GET("/todos/today", handleTodosToday)
-	r.PUT("/todos", initNewItem, validateNewItem, handleNewItem)
+	r.PUT("/todos", handleNewItem)
 	r.GET("/todos", handleGetItems)
 
 	err := r.Run()
